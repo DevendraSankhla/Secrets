@@ -4,7 +4,7 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const express = require("express");
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+const md5 = require("md5");
 
 const app= express();
 app.use(express.static("public"));
@@ -17,8 +17,6 @@ const userSchema = new mongoose.Schema({
   username:String,
   password:String
 });
-
-userSchema.plugin(encrypt, {secret:process.env.SECRET, encryptedFields: ['password']});
 
 const User = mongoose.model("User", userSchema);
 
@@ -37,7 +35,7 @@ app.get("/register", function(req, res){
 app.post("/register", function(req, res){
   const user = new User({
     username: req.body.username,
-    password: req.body.password
+    password: md5(req.body.password)
   })
   user.save(function(err){
     if(err)
@@ -53,7 +51,7 @@ app.post("/login", function(req, res){
       console.log(err);
     else{
       if(foundUser){
-        if(foundUser.password == req.body.password)
+        if(foundUser.password == md5(req.body.password))
           res.render("secrets");
         else
           console.log("Incorrect password for the username");
