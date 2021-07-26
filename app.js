@@ -26,15 +26,21 @@ app.use(passport.session());
 
 mongoose.connect('mongodb://localhost:27017/userDB', {useNewUrlParser: true, useUnifiedTopology: true});
 
+const secretSchema = new mongoose.Schema({
+  secret:String
+});
+
 const userSchema = new mongoose.Schema({
   username:String,
   password:String,
-  googleId:String
+  googleId:String,
+  secrets:[secretSchema]
 });
 
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
 
+const Secret = mongoose.model("Secret", secretSchema);
 const User = mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
@@ -89,12 +95,46 @@ app.get("/register", function(req, res){
 });
 
 app.get("/secrets", function(req, res){
+  User.find({secrets:{$ne:null}}, function(err, foundUsers){
+    if(err)
+      console.log(err);
+    else{
+      if(foundUsers){
+        res.render("secrets", {usersList:foundUsers});
+      }
+    }
+  })
+});
+
+app.get("/submit", function(req, res){
   if(req.isAuthenticated()){
-    res.render("secrets");
+    res.render("submit");
   }
   else{
     res.redirect("/login");
   }
+});
+
+app.post("/submit", function(req, res){
+  console.log(req.user);
+  User.findById(req.user.id, function(err, foundUser){
+    if(err)
+      console.log(err);
+    else{
+      if(foundUser){
+//        foundUser.secret = req.body.secret;
+        const secret = new Secret({
+          secret:req.body.secret
+        })
+        foundUser.secrets.push(secret);
+        foundUser.save(function(){
+          res.redirect("/secrets");
+        });
+      }
+      else
+        res.redirect("/login");
+    }
+  });
 });
 
 app.post("/register", function(req, res){
@@ -120,7 +160,7 @@ app.post("/login", function(req, res){
     if(err)
       console.log(err);
     else{
-      passport.authenticate("local")(req, res, function(){
+      passport.authenticate("local", {failureRedirect: "/register"})(req, res, function(){
         res.redirect("/secrets");
       })
     }
